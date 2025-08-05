@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+
+<body>
+    <div>
+        <canvas id="canvas" width="1000" height="400"></canvas>
+        <div>
+            <button id="startTrain">启动列车</button>
+            <button id="resetTrain">重置列车</button>
+        </div>
+    </div>
+</body>
+<script>
+    const stations = [
+        {
+            name: '东站',
+            x: 50,
+            y: 100
+        },
+        {
+            name: '成水站',
+            x: 200,
+            y: 100
+        },
+        {
+            name: '广陵站',
+            x: 240,
+            y: 160
+        },
+        {
+            name: '陈家站',
+            x: 400,
+            y: 160
+        },
+        {
+            name: '新站',
+            x: 450,
+            y: 100
+        },
+        {
+            name: '汤家坞',
+            x: 600,
+            y: 100
+        },
+        {
+            name: '北站',
+            x: 300,
+            y: 50
+        },
+        {
+            name: '圆环',
+            x: 400,
+            y: 50
+        },
+        {
+            name: '南京路',
+            x: 450,
+            y: 200
+        },
+        {
+            name: '南站',
+            x: 450,
+            y: 300
+        }
+    ];
+    
+ 
+    const lines = [
+        {
+            path: [[50, 100], [200, 100], [240, 160], [400, 160], [450, 100], [600, 100]],
+            color: 'red',
+            lineWidth: 5,
+            name: '1号线'
+        },
+        {
+            path: [[300, 50], [400, 50], [400, 160], [450, 200], [450, 300]],
+            color: 'green',
+            lineWidth: 5,
+            name: '2号线'
+        }
+    ];
+    
+
+    let hoveredLine = null;
+    
+
+    const train = {
+        x: 50,
+        y: 100,
+        width: 20,
+        height: 10,
+        color: 'blue',
+        speed: 2,
+        progress: 0,
+        currentLine: 0, 
+        currentSegment: 0,
+        moving: false
+    };
+    function drawLine(pathArray, color, lineWidth) {
+
+        for (let i = 0; i < pathArray.length - 1; i++) {
+
+            ctx.strokeStyle = color;
+            ctx.lineWidth = lineWidth;
+
+            ctx.beginPath();
+            ctx.moveTo(pathArray[i][0], pathArray[i][1]);
+            ctx.lineTo(pathArray[i + 1][0], pathArray[i + 1][1]);
+            ctx.stroke();
+        }
+    }
+    
+    function drawLines() {
+        lines.forEach((line, index) => {
+
+            const isHovered = hoveredLine === index;
+            
+
+            drawLine(line.path, isHovered ? 'yellow' : line.color, isHovered ? line.lineWidth + 2 : line.lineWidth);
+        });
+    }
+
+    function drawStations() {
+        stations.forEach(station => {
+
+            drawCircle(station.x, station.y, 8, '#000');
+
+
+            ctx.fillStyle = 'black';
+            ctx.font = '12px Arial';
+            ctx.fillText(station.name, station.x + 10, station.y - 10);
+        });
+    }
+    
+
+    function drawTrain() {
+
+        ctx.save();
+
+        ctx.translate(train.x, train.y);
+        if (train.moving) {
+            const line = lines[train.currentLine];
+            const segmentStart = line.path[train.currentSegment];
+            const segmentEnd = line.path[train.currentSegment + 1];
+            
+
+            const angle = Math.atan2(segmentEnd[1] - segmentStart[1], segmentEnd[0] - segmentStart[0]);
+            
+
+            ctx.rotate(angle);
+        }
+        
+
+        ctx.fillStyle = train.color;
+        ctx.fillRect(-train.width/2, -train.height/2, train.width, train.height);
+
+        ctx.restore();
+    }
+    function drawCircle(x, y, r, color) {
+
+        ctx.fillStyle = 'white';
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fill();
+
+
+        ctx.strokeStyle = 'black';
+        ctx.lineWidth = 4; 
+        ctx.stroke();
+    }
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    
+
+    canvas.addEventListener('mousemove', function(event) {
+
+        const rect = canvas.getBoundingClientRect();
+        const mouseX = event.clientX - rect.left;
+        const mouseY = event.clientY - rect.top;
+        
+
+        let newHoveredLine = null;
+        
+
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            
+
+            for (let j = 0; j < line.path.length - 1; j++) {
+                const p1 = { x: line.path[j][0], y: line.path[j][1] };
+                const p2 = { x: line.path[j + 1][0], y: line.path[j + 1][1] };
+                
+     
+                if (isMouseNearLine(mouseX, mouseY, p1, p2, line.lineWidth)) {
+                    newHoveredLine = i;
+                    break;
+                }
+            }
+            
+            if (newHoveredLine !== null) {
+                break;
+            }
+        }
+        
+
+        if (hoveredLine !== newHoveredLine) {
+            hoveredLine = newHoveredLine;
+            redraw();
+        }
+    });
+    
+
+    function isMouseNearLine(mouseX, mouseY, p1, p2, lineWidth) {
+   
+        const A = mouseX - p1.x;
+        const B = mouseY - p1.y;
+        const C = p2.x - p1.x;
+        const D = p2.y - p1.y;
+        
+        const dot = A * C + B * D;
+        const lenSq = C * C + D * D;
+        let param = -1;
+        
+        if (lenSq !== 0) {
+            param = dot / lenSq;
+        }
+        
+        let xx, yy;
+        
+        if (param < 0) {
+            xx = p1.x;
+            yy = p1.y;
+        } else if (param > 1) {
+            xx = p2.x;
+            yy = p2.y;
+        } else {
+            xx = p1.x + param * C;
+            yy = p1.y + param * D;
+        }
+        
+        const dx = mouseX - xx;
+        const dy = mouseY - yy;
+        
+  
+        return Math.sqrt(dx * dx + dy * dy) <= lineWidth;
+    }
+    
+
+    function redraw() {
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+ 
+        drawLines();
+        drawStations();
+        
+
+        if (train) {
+            drawTrain();
+        }
+    }
+    
+
+    function updateTrain() {
+        if (!train.moving) return;
+        
+
+        const line = lines[train.currentLine];
+        const segmentStart = line.path[train.currentSegment];
+        const segmentEnd = line.path[train.currentSegment + 1];
+        
+
+        train.progress += train.speed;
+        
+
+        const ratio = train.progress / 100;
+        if (ratio >= 1) {
+    
+            train.currentSegment++;
+            train.progress = 0;
+            
+            if (train.currentSegment >= line.path.length - 1) {
+                train.moving = false;
+                return;
+            }
+        }
+        
+
+        train.x = segmentStart[0] + (segmentEnd[0] - segmentStart[0]) * ratio;
+        train.y = segmentStart[1] + (segmentEnd[1] - segmentStart[1]) * ratio;
+    }
+    
+
+    function animate() {
+        updateTrain();
+        redraw();
+        requestAnimationFrame(animate);
+    }
+    
+
+    animate();
+    
+    redraw();
+    
+    document.addEventListener('DOMContentLoaded', function() {
+
+        const startTrainBtn = document.getElementById('startTrain');
+        const resetTrainBtn = document.getElementById('resetTrain');
+        
+        startTrainBtn.addEventListener('click', function() {
+            train.moving = true;
+            train.currentLine = 0;
+            train.currentSegment = 0;
+            train.progress = 0;
+            
+            const line = lines[train.currentLine];
+            train.x = line.path[0][0];
+            train.y = line.path[0][1];
+        });
+        
+        resetTrainBtn.addEventListener('click', function() {
+            train.moving = false;
+            train.currentLine = 0;
+            train.currentSegment = 0;
+            train.progress = 0;
+            
+            const line = lines[train.currentLine];
+            train.x = line.path[0][0];
+            train.y = line.path[0][1];
+            
+            redraw();
+        });
+    });
+</script>
+
+</html>
